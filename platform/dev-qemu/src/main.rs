@@ -7,14 +7,14 @@ use board::Board;
 use defmt::info;
 use defmt_semihosting as _;
 use embassy_executor::Spawner;
-use embassy_qemu_riscv::uart::{Blocking, Uart};
+use embassy_qemu_riscv::uart::{buffered, Async};
 use platform_common::board::BoardIo;
 use platform_common::OdpRelayHandler;
 use semihosting as _; // Panic handler
 use static_cell::StaticCell;
 
 #[embassy_executor::task]
-async fn uart_service(uart: Uart<'static, Blocking>, relay: OdpRelayHandler<'static>) {
+async fn uart_service(uart: buffered::Uart<'static, Async>, relay: OdpRelayHandler<'static>) {
     info!("Starting uart service");
     static UART_SERVICE: StaticCell<uart_service::Service<OdpRelayHandler>> = StaticCell::new();
     let uart_service = uart_service::Service::new(relay).unwrap();

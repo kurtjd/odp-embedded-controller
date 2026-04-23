@@ -1,5 +1,11 @@
-use embassy_qemu_riscv::uart::{Blocking, Uart};
+use embassy_qemu_riscv::uart::{buffered, Async};
+use embassy_qemu_riscv::{bind_interrupts, peripherals, uart};
 use platform_common::board::BoardIo;
+use static_cell::StaticCell;
+
+bind_interrupts!(struct Irqs {
+    UART0 => uart::buffered::InterruptHandler<peripherals::UART0>;
+});
 
 /// Board IO for the dev-qemu platform.
 ///
@@ -7,18 +13,18 @@ use platform_common::board::BoardIo;
 /// for ODP service communication.
 pub struct Board {
     /// UART for ODP service communication.
-    pub uart: Uart<'static, Blocking>,
+    pub uart: buffered::Uart<'static, Async>,
 }
 
 impl BoardIo for Board {
     type Peripherals = embassy_qemu_riscv::Peripherals;
 
     fn init(p: Self::Peripherals) -> Self {
-        // Note: The embedded-io-async traits are implemented for blocking UART in the HAL until we have async support there
-        // IMPORTANT: So the UART service will block the entire executor while it waits for a request,
-        // which is fine with mock services, but proper async support will need to be added to the HAL in the future
-        // if this becomes no longer acceptable.
-        let uart = Uart::new_blocking(p.UART0, Default::default()).expect("Failed to initialize UART");
+        static RX_BUF: StaticCell<[u8; 256]> = StaticCell::new();
+        let rx_buf = RX_BUF.init([0u8; 256]);
+
+        let uart =
+            buffered::Uart::new_async(p.UART0, Irqs, rx_buf, Default::default()).expect("Failed to initialize UART");
 
         Board { uart }
     }
