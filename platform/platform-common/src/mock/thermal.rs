@@ -1,4 +1,4 @@
-use embassy_sync::channel::Sender as ChannelSender;
+use embassy_sync::channel::{Channel, Sender as ChannelSender};
 use embedded_services::info;
 use embedded_services::GlobalRawMutex;
 use static_cell::StaticCell;
@@ -15,8 +15,23 @@ type SensorService = ts::sensor::Service<'static, MockSensor, SensorEventSender,
 type FanService = ts::fan::Service<'static, MockFan, SensorService, FanEventSender, 16>;
 pub type ThermalService = ts::Service<'static, SensorService, FanService>;
 
+/// Channel for sensor events. Access the receiver via `.receiver()` from consumers.
+pub static SENSOR_EVENT_CHANNEL: Channel<GlobalRawMutex, sensor::Event, SENSOR_EVENT_CHANNEL_SIZE> = Channel::new();
+
+/// Channel for fan events. Access the receiver via `.receiver()` from consumers.
+pub static FAN_EVENT_CHANNEL: Channel<GlobalRawMutex, fan::Event, FAN_EVENT_CHANNEL_SIZE> = Channel::new();
+
 pub async fn init(spawner: embassy_executor::Spawner) -> ThermalService {
     info!("Initializing thermal service...");
+
+    let sensor_sender = SENSOR_EVENT_CHANNEL.sender();
+    let fan_sender = FAN_EVENT_CHANNEL.sender();
+
+    static SENSOR_SENDERS: StaticCell<[SensorEventSender; 1]> = StaticCell::new();
+    let sensor_senders = SENSOR_SENDERS.init([sensor_sender]);
+
+    static FAN_SENDERS: StaticCell<[FanEventSender; 1]> = StaticCell::new();
+    let fan_senders = FAN_SENDERS.init([fan_sender]);
 
     // Create and spawn mock sensor service
     let sensor_service = odp_service_common::spawn_service!(
@@ -25,7 +40,7 @@ pub async fn init(spawner: embassy_executor::Spawner) -> ThermalService {
         ts::sensor::InitParams {
             driver: MockSensor::new(),
             config: MockSensor::config(),
-            event_senders: &mut [],
+            event_senders: sensor_senders,
         }
     )
     .expect("Failed to spawn mock sensor service");
@@ -38,7 +53,7 @@ pub async fn init(spawner: embassy_executor::Spawner) -> ThermalService {
             driver: MockFan::new(),
             config: MockFan::config(),
             sensor_service,
-            event_senders: &mut [],
+            event_senders: fan_senders,
         }
     )
     .expect("Failed to spawn mock fan service");
