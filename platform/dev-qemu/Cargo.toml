@@ -47,6 +47,9 @@ riscv-rt = "0.17.0"
 embassy-qemu-riscv = { git = "https://github.com/kurtjd/qemu-riscv-rs", features = [
     "defmt",
 ] }
+embedded-mcu-hal = { git = "https://github.com/OpenDevicePartnership/embedded-mcu", features = [
+    "defmt",
+] }
 embassy-executor = { version = "0.10.0", features = [
     "platform-riscv32",
     "executor-thread",

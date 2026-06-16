@@ -272,6 +272,7 @@ dependencies = [
  "defmt-semihosting",
  "embassy-executor 0.10.0",
  "embassy-qemu-riscv",
+ "embedded-mcu-hal 0.3.0",
  "platform-common",
  "riscv-rt",
  "semihosting",
